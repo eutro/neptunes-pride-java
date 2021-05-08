@@ -34,3 +34,7 @@ publishing {
         }
     }
 }
+
+tasks.javadoc {
+    setDestinationDir(file("$projectDir/docs"))
+}

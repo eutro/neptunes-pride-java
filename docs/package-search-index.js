@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"io.github.eutro.neptunespride"},{"l":"io.github.eutro.neptunespride.serialization"},{"l":"io.github.eutro.neptunespride.types"}];updateSearchResults();

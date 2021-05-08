@@ -2,56 +2,97 @@ package io.github.eutro.neptunespride;
 
 import com.google.api.client.http.EmptyContent;
 import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.gson.*;
-import io.github.eutro.neptunespride.types.response.Fleet;
-import io.github.eutro.neptunespride.types.response.Player;
-import io.github.eutro.neptunespride.types.response.ScanningData;
-import io.github.eutro.neptunespride.types.response.Toggle;
-import io.github.eutro.neptunespride.types.serialization.ArrayDeserializerFactory;
-import io.github.eutro.neptunespride.types.serialization.ArrayIndexDeserializer;
-import io.github.eutro.neptunespride.types.serialization.FilterFactory;
-import io.github.eutro.neptunespride.types.serialization.FirstKeyDeserializerFactory;
+import io.github.eutro.neptunespride.serialization.FieldArrayTypeAdapter;
+import io.github.eutro.neptunespride.serialization.ArrayIndexTypeAdapter;
+import io.github.eutro.neptunespride.serialization.FilterFactory;
+import io.github.eutro.neptunespride.serialization.FirstKeyTypeAdapter;
+import io.github.eutro.neptunespride.types.Fleet;
+import io.github.eutro.neptunespride.types.ScanningData;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
+/**
+ * The main entry point for the Neptune's Pride API.
+ */
 public class NeptunesPride {
-    public static final String NP_API = "https://np.ironhelmet.com/api";
-    public static final EmptyContent CONTENT = new EmptyContent();
-    public static HttpTransport TRANSPORT = new NetHttpTransport();
-
-    public static final Gson gson = new GsonBuilder()
-            .registerTypeAdapterFactory(new FilterFactory(Fleet.Order.class, ArrayDeserializerFactory.INSTANCE))
-            .registerTypeAdapterFactory(new FilterFactory(ScanningData.class, FirstKeyDeserializerFactory.INSTANCE))
-            .registerTypeAdapter(Fleet.Order.Type.class, new ArrayIndexDeserializer<>(Fleet.Order.Type.values()))
-            .registerTypeAdapter(Toggle.class, new ArrayIndexDeserializer<>(Toggle.values()))
-            .registerTypeAdapter(Player.Conceded.class, new ArrayIndexDeserializer<>(Player.Conceded.values()))
+    private static final HttpTransport TRANSPORT = new NetHttpTransport();
+    private static final Gson GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new FilterFactory(Fleet.Order.class, FieldArrayTypeAdapter.FACTORY))
+            .registerTypeAdapterFactory(new FilterFactory(ScanningData.class, FirstKeyTypeAdapter.FACTORY))
+            .registerTypeAdapterFactory(ArrayIndexTypeAdapter.ENUM_FACTORY)
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
             .create();
 
-    public static ScanningData run(String gameId, String apiKey) throws IOException {
-        JsonElement object = runRaw(gameId, apiKey);
+    /**
+     * Fetch and deserialize the scanning data for a game, as returned by the API.
+     * <p>
+     * This method {@link #fetchRaw(String, String) fetches the raw data}
+     * and deserializes it using {@link #getGson() Gson},
+     * or throws an exception if the API returned an error.
+     *
+     * @param gameId The ID of the game, as a string.
+     * @param apiKey The API code generated in the game's options.
+     * @return The {@link ScanningData scanning data} fetched and deserialized from the API.
+     * @throws IOException        If an IO exception occurs fetching the data.
+     * @throws NPApiException  If the API returns an error.
+     * @throws JsonParseException If the API did not return valid JSON.
+     * @see #fetchRaw(String, String)
+     * @see #getGson()
+     */
+    public static ScanningData fetch(String gameId, String apiKey) throws IOException, NPApiException, JsonParseException {
+        JsonElement object = fetchRaw(gameId, apiKey);
         if (object.isJsonObject() && object.getAsJsonObject().has("error")) {
             throw new RuntimeException(object.getAsJsonObject().get("error").getAsString());
         }
-        return gson.fromJson(object, ScanningData.class);
+        return getGson().fromJson(object, ScanningData.class);
     }
 
-    public static JsonElement runRaw(String gameId, String apiKey) throws IOException {
-        GenericUrl url = new GenericUrl(NP_API);
+    /**
+     * Fetch the JSON data for a game, as returned by the API.
+     *
+     * @param gameId The ID of the game, as a string.
+     * @param apiKey The API code generated in the game's options.
+     * @return The JSON the API returned.
+     * @throws IOException        If an IO exception occurs fetching the data.
+     * @throws JsonParseException If the API did not return valid JSON.
+     * @see #fetch(String, String)
+     */
+    public static JsonElement fetchRaw(String gameId, String apiKey) throws IOException, JsonParseException {
+        GenericUrl url = new GenericUrl("https://np.ironhelmet.com/api");
         url.put("game_number", gameId);
         url.put("code", apiKey);
         url.put("api_version", "0.1");
-        return JsonParser.parseReader(new BufferedReader(new InputStreamReader(TRANSPORT
+        HttpResponse response = TRANSPORT
                 .createRequestFactory()
-                .buildPostRequest(url, CONTENT)
-                .execute()
-                .getContent())));
+                .buildPostRequest(url, new EmptyContent())
+                .execute();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getContent()))) {
+            return JsonParser.parseReader(reader);
+        }
     }
 
+    /**
+     * Get the {@link Gson} instance used to deserialize the JSON data.
+     *
+     * @return The Gson instance that is used to deserialize the incoming data.
+     * @see #fetch(String, String)
+     */
+    public static Gson getGson() {
+        return GSON;
+    }
+
+    /**
+     * Pretty-print the data from the API, taking a game ID and an API key.
+     *
+     * @param args The program arguments, an array of two strings, the game ID and the API key.
+     * @throws IOException If the API couldn't be polled.
+     */
     public static void main(String[] args) throws IOException {
         if (args.length != 2) {
             System.err.println("Expected two arguments: [game-id], [api-key]");
@@ -60,6 +101,6 @@ public class NeptunesPride {
         new GsonBuilder()
                 .setPrettyPrinting()
                 .create()
-                .toJson(runRaw(args[0], args[1]), System.out);
+                .toJson(fetchRaw(args[0], args[1]), System.out);
     }
 }
