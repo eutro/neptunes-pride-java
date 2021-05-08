@@ -9,7 +9,7 @@ public class Star {
     @SerializedName("i") @Only.Visible public Integer industry;
     @SerializedName("n") public String name;
     @SerializedName("nr") @Only.Visible public Integer naturalResources;
-    @SerializedName("puid") public int ownerUid;
+    @SerializedName("puid") public Integer ownerUid;
     @SerializedName("r") @Only.Visible public Integer terraformedResources;
     @SerializedName("s") @Only.Visible public Integer science;
     @SerializedName("st") @Only.Visible public Integer shipCount;

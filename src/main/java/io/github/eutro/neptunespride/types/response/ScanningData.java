@@ -8,6 +8,7 @@ public final class ScanningData {
     public boolean paused;
     public int productions;
     public float tickFragment;
+    public int tickRate;
     public long now;
     public int productionRate;
     public Map<Integer, Star> stars;
