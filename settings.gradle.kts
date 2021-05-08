@@ -1,1 +1,1 @@
-rootProject.name = "NeptunesPrideApi"
+rootProject.name = "neptunes-pride-java"

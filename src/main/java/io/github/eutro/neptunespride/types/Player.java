@@ -83,7 +83,7 @@ public class Player {
     /**
      * Unknown.
      */
-    public Toggle starsAbandoned;
+    public int starsAbandoned;
 
     /**
      * The technology progress of this player.
